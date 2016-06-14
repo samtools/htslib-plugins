@@ -1,0 +1,9 @@
+*.o
+*.pico
+
+hfile_*.bundle
+hfile_*.cygdll
+hfile_*.dll
+hfile_*.so
+
+/TAGS
