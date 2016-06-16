@@ -22,8 +22,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
-#include <config.h>
-
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -247,7 +245,7 @@ error:
     return NULL;
 }
 
-int PLUGIN_GLOBAL(hfile_plugin_init,_irods)(struct hFILE_plugin *self)
+int hfile_plugin_init(struct hFILE_plugin *self)
 {
     static const struct hFILE_scheme_handler handler =
         { hopen_irods, hfile_always_remote, "iRODS", 50 };
