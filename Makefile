@@ -40,38 +40,41 @@ all: plugins
 # of your HTSlib source tree.
 #HTSDIR = ../htslib
 
+ALL_CPPFLAGS = $(CPPFLAGS)
+ALL_CFLAGS   = $(CFLAGS)
+ALL_LDFLAGS  = $(LDFLAGS)
+ALL_LIBS     = $(LIBS)
+
 %.o: %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
+	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) -c -o $@ $<
 
 PLATFORM := $(shell uname -s)
 ifeq "$(PLATFORM)" "Darwin"
 PLUGIN_EXT = .bundle
-EXTRA_CFLAGS =
 
 %.bundle: %.o
-	$(CC) -bundle -Wl,-undefined,dynamic_lookup $(LDFLAGS) -o $@ $< $(LIBS)
+	$(CC) -bundle -Wl,-undefined,dynamic_lookup $(ALL_LDFLAGS) -o $@ $^ $(ALL_LIBS)
 
 else ifeq "$(findstring CYGWIN,$(PLATFORM))" "CYGWIN"
 PLUGIN_EXT = .cygdll
-EXTRA_CFLAGS =
 
 %.cygdll: %.o
-	$(CC) -shared $(LDFLAGS) -o $@ $< libhts.dll.a $(LIBS)
+	$(CC) -shared $(ALL_LDFLAGS) -o $@ $^ libhts.dll.a $(ALL_LIBS)
 
 ifdef HTSDIR
-LDFLAGS += -L$(HTSDIR)
+ALL_LDFLAGS += -L$(HTSDIR)
 endif
 
 else
 PLUGIN_EXT = .so
-EXTRA_CFLAGS = -fpic
+ALL_CFLAGS += -fpic
 
 %.so: %.o
-	$(CC) -shared -Wl,-E -pthread $(LDFLAGS) -o $@ $< $(LIBS)
+	$(CC) -shared -Wl,-E -pthread $(ALL_LDFLAGS) -o $@ $^ $(ALL_LIBS)
 endif
 
 ifdef HTSDIR
-CPPFLAGS += -I$(HTSDIR)
+ALL_CPPFLAGS += -I$(HTSDIR)
 endif
 
 plugins: hfile_irods$(PLUGIN_EXT)
@@ -106,8 +109,9 @@ endif
 IRODS_LDFLAGS = -L$(IRODS_HOME)/lib/core/obj
 IRODS_LIBS = -lRodsAPIs -lgssapi_krb5
 
-hfile_irods.o: CPPFLAGS += $(IRODS_CPPFLAGS)
-hfile_irods$(PLUGIN_EXT): LDFLAGS += $(IRODS_LDFLAGS)
-hfile_irods$(PLUGIN_EXT): LIBS += $(IRODS_LIBS)
+hfile_irods.o: ALL_CPPFLAGS += $(IRODS_CPPFLAGS)
+hfile_irods$(PLUGIN_EXT): ALL_LDFLAGS += $(IRODS_LDFLAGS)
+hfile_irods$(PLUGIN_EXT): ALL_LIBS += $(IRODS_LIBS)
 
+hfile_irods$(PLUGIN_EXT): hfile_irods.o
 hfile_irods.o: hfile_irods.c hfile_internal.h
