@@ -1,6 +1,6 @@
 /*  hfile_irods.c -- iRODS backend for low-level file streams.
 
-    Copyright (C) 2013, 2015 Genome Research Ltd.
+    Copyright (C) 2013, 2015, 2016 Genome Research Ltd.
 
     Author: John Marshall <jm18@sanger.ac.uk>
 
@@ -47,12 +47,21 @@ typedef struct {
 static int status_errno(int status)
 {
     switch (status) {
+    case SYS_INVALID_INPUT_PARAM: return EINVAL;
     case SYS_NO_API_PRIV: return EACCES;
     case SYS_MALLOC_ERR: return ENOMEM;
     case SYS_OUT_OF_FILE_DESC: return ENFILE;
     case SYS_BAD_FILE_DESCRIPTOR: return EBADF;
+#ifdef PLUGIN_ERROR
+    case PLUGIN_ERROR: return ENOEXEC;
+#endif
+#ifdef PLUGIN_ERROR_MISSING_SHARED_OBJECT
+    case PLUGIN_ERROR_MISSING_SHARED_OBJECT: return ENOEXEC;
+#endif
+    case USER_RODS_HOST_EMPTY: return EHOSTUNREACH;
     case CAT_NO_ACCESS_PERMISSION: return EACCES;
     case CAT_INVALID_AUTHENTICATION: return EACCES;
+    case CAT_INVALID_USER: return EACCES;
     case CAT_NO_ROWS_FOUND: return ENOENT;
     case CATALOG_ALREADY_HAS_ITEM_BY_THAT_NAME: return EEXIST;
     default: return EIO;
@@ -83,7 +92,11 @@ static int irods_init()
     rErrMsg_t err;
     int ret, pipehandler_ret;
 
-    if (hts_verbose >= 5) rodsLogLevel(hts_verbose);
+    if (hts_verbose >= 5) {
+        fprintf(stderr, "[M::hfile_irods.init] plugin built against %s(%s)\n",
+                RODS_REL_VERSION, RODS_API_VERSION);
+        rodsLogLevel(hts_verbose);
+    }
 
     ret = getRodsEnv(&irods.env);
     if (ret < 0) goto error;
@@ -106,6 +119,17 @@ static int irods_init()
                            NO_RECONN, &err);
     if (pipehandler_ret == 0) sigaction(SIGPIPE, &pipehandler, NULL);
     if (irods.conn == NULL) { ret = err.status; goto error; }
+
+    if (hts_verbose >= 5) {
+        fprintf(stderr, "[M::hfile_irods.init] connected to %s(%s)",
+                irods.conn->svrVersion->relVersion,
+                irods.conn->svrVersion->apiVersion);
+        if (irods.env.rodsHost && irods.env.rodsPort)
+            fprintf(stderr, " at %s:%d\n",
+                    irods.env.rodsHost, irods.env.rodsPort);
+        else
+            fprintf(stderr, "\n");
+    }
 
     if (strcmp(irods.env.rodsUserName, PUBLIC_USER_NAME) != 0) {
 #if defined IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4000000
@@ -227,6 +251,7 @@ hFILE *hopen_irods(const char *filename, const char *mode)
     memset(&args, 0, sizeof args);
     strcpy(args.objPath, path.outPath);
     args.openFlags = hfile_oflags(mode);
+    args.oprType = (args.openFlags & O_RDONLY)? GET_OPR : PUT_OPR;
     if (args.openFlags & O_CREAT) {
         args.createMode = 0666;
         addKeyVal(&args.condInput, DEST_RESC_NAME_KW,irods.env.rodsDefResource);
