@@ -31,13 +31,21 @@ DEALINGS IN THE SOFTWARE.  */
 #include "htslib/hts.h"  // for hts_version() and hts_verbose
 #include "htslib/kstring.h"
 
-#include <rcConnect.h>
-#include <rcMisc.h>
-#include <dataObjOpen.h>
-#include <dataObjRead.h>
-#include <dataObjWrite.h>
-#include <dataObjLseek.h>
-#include <dataObjClose.h>
+#include <rodsClient.h>
+
+// PRIORITY ensures that if multiple hfile_irods plugins built against
+// different iRODS versions are installed, the plain "irods" scheme will
+// be claimed by the most modern one.
+#if defined IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4000000
+#define PRIORITY (10 * IRODS_VERSION_MAJOR) + IRODS_VERSION_MINOR
+#else
+#define PRIORITY 30
+// For iRODS 3.x, there is no init_client_api_table() to call and clientLogin()
+// has fewer parameters.  Define wrappers so the 4.x-style code below compiles.
+static void init_client_api_table() { }
+#define clientLogin(conn, x, y) (clientLogin((conn)))
+#endif
+
 
 typedef struct {
     hFILE base;
@@ -114,6 +122,7 @@ static int irods_init()
     // state (by default, termination; or as already set by our caller).
     pipehandler_ret = sigaction(SIGPIPE, NULL, &pipehandler);
 
+    init_client_api_table();
     irods.conn = rcConnect(irods.env.rodsHost, irods.env.rodsPort,
                            irods.env.rodsUserName, irods.env.rodsZone,
                            NO_RECONN, &err);
@@ -132,11 +141,7 @@ static int irods_init()
     }
 
     if (strcmp(irods.env.rodsUserName, PUBLIC_USER_NAME) != 0) {
-#if defined IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4000000
         ret = clientLogin(irods.conn, NULL, NULL);
-#else
-        ret = clientLogin(irods.conn);
-#endif
         if (ret != 0) goto error;
     }
 
@@ -226,7 +231,7 @@ static const struct hFILE_backend irods_backend =
     irods_read, irods_write, irods_seek, NULL, irods_close
 };
 
-hFILE *hopen_irods(const char *filename, const char *mode)
+static hFILE *hopen_irods(const char *filename, const char *mode)
 {
     hFILE_irods *fp;
     rodsPath_t path;
@@ -236,7 +241,10 @@ hFILE *hopen_irods(const char *filename, const char *mode)
     // Initialise the iRODS connection if this is the first use.
     if (irods.conn == NULL) { if (irods_init() < 0) return NULL; }
 
-    if (strncmp(filename, "irods:", 6) == 0) filename += 6;
+    // Check that the URL scheme is "irods" or "irods[0-9.]*".
+    if (strncmp(filename, "irods", 5) == 0
+        && filename[5 + strspn(&filename[5], "0123456789.")] == ':')
+        filename = strchr(filename, ':') + 1;
     else { errno = EINVAL; return NULL; }
 
     fp = (hFILE_irods *) hfile_init(sizeof (hFILE_irods), mode, 0);
@@ -273,10 +281,12 @@ error:
 int hfile_plugin_init(struct hFILE_plugin *self)
 {
     static const struct hFILE_scheme_handler handler =
-        { hopen_irods, hfile_always_remote, "iRODS", 50 };
+        { hopen_irods, hfile_always_remote, "iRODS", PRIORITY };
 
     self->name = "iRODS";
     hfile_add_scheme_handler("irods", &handler);
+    // At present RODS_REL_VERSION looks like "rodsX.Y[.Z]".
+    hfile_add_scheme_handler("i"RODS_REL_VERSION, &handler);
     self->destroy = irods_exit;
     return 0;
 }

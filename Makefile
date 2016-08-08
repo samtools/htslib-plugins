@@ -90,24 +90,73 @@ tags TAGS:
 
 # By default, compile iRODS plugins against a system-installed iRODS.
 # To compile against a run-in-place installation, set IRODS_HOME to the
-# base directory of such an installation.
-IRODS_HOME ?= /usr/include/irods
+# base directory of such an installation.  If there is an additional
+# separate build tree, set IRODS_BUILD to its base directory.
+IRODS_HOME ?= /usr
 
-ifneq "$(wildcard $(IRODS_HOME)/lib/core/include/*)" ""
-IRODS_CPPFLAGS = \
+IRODS_CPPFLAGS =
+IRODS_LDFLAGS  =
+
+ifneq "$(wildcard $(IRODS_HOME)/include/irods/rcConnect.h)" ""
+IRODS_CPPFLAGS += -I$(IRODS_HOME)/include/irods
+IRODS_VERFILE = $(IRODS_HOME)/include/irods/rodsVersion.h
+
+else ifneq "$(wildcard $(IRODS_HOME)/rcConnect.h)" ""
+IRODS_CPPFLAGS += -I$(IRODS_HOME)
+IRODS_VERFILE = $(IRODS_HOME)/rodsVersion.h
+
+else ifneq "$(wildcard $(IRODS_HOME)/lib/core/include/*)" ""
+IRODS_CPPFLAGS += \
 	-I$(IRODS_HOME)/lib/api/include \
 	-I$(IRODS_HOME)/lib/core/include \
 	-I$(IRODS_HOME)/lib/md5/include \
 	-I$(IRODS_HOME)/lib/sha1/include \
 	-I$(IRODS_HOME)/server/core/include \
 	-I$(IRODS_HOME)/server/drivers/include \
-	-I$(IRODS_HOME)/server/icat/include
+	-I$(IRODS_HOME)/server/icat/include \
+	-I$(IRODS_HOME)/server/re/include
+IRODS_VERFILE = $(IRODS_HOME)/lib/core/include/rodsVersion.h
+
 else
 IRODS_CPPFLAGS = $(error no iRODS headers found (set IRODS_HOME))
+IRODS_VERFILE  = /dev/null
 endif
 
-IRODS_LDFLAGS = -L$(IRODS_HOME)/lib/core/obj
+ifneq "$(wildcard $(IRODS_HOME)/lib/irods/externals/lib*)" ""
+IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/irods/externals
+endif
+ifneq "$(wildcard $(IRODS_HOME)/lib/core/obj/lib*)" ""
+IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/core/obj
+endif
+
+ifdef IRODS_BUILD
+IRODS_CPPFLAGS += -I$(IRODS_BUILD)/lib/core/include
+IRODS_VERFILE = $(IRODS_BUILD)/lib/core/include/rodsVersion.h
+IRODS_LDFLAGS += -L$(IRODS_BUILD)
+endif
+
+
+IRODS_VERSION := $(shell grep RODS_REL_VERSION $(IRODS_VERFILE))
+ifneq "$(findstring rods3.,$(IRODS_VERSION))" ""
+
 IRODS_LIBS = -lRodsAPIs -lgssapi_krb5
+
+else ifneq "$(findstring rods4.1.,$(IRODS_VERSION))" ""
+
+# iRODS 4.1.x has its own plugins (eg libtcp.so) but no pervasive shared
+# libraries.  So its plugins need to be able to see iRODS code linked into
+# the hfile_irods plugin, so we must be a RTLD_GLOBAL-loaded plugin.
+IRODS_CPPFLAGS += -Dhfile_plugin_init=hfile_plugin_init_hfile_irods
+
+IRODS_LIBS = -lirods_client -lirods_client_api_table -lirods_client_plugins -lirods_client_api -lirods_client_core \
+	-ljansson -lboost_program_options -lboost_filesystem -lboost_chrono -lboost_regex -lboost_thread -lboost_system -lssl -lcrypto -lrt -lstdc++
+
+else
+
+IRODS_LIBS = -lirods_client_api_table -lirods_client_core -lirods_plugin_dependencies -lirods_common
+
+endif
+
 
 hfile_irods.o: ALL_CPPFLAGS += $(IRODS_CPPFLAGS)
 hfile_irods$(PLUGIN_EXT): ALL_LDFLAGS += $(IRODS_LDFLAGS)
