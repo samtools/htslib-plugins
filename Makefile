@@ -127,6 +127,10 @@ IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/irods/externals
 endif
 ifneq "$(wildcard $(IRODS_HOME)/lib/core/obj/lib*)" ""
 IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/core/obj
+else ifneq "$(wildcard $(IRODS_HOME)/lib)" ""
+ifneq "$(IRODS_HOME)" "/usr"
+IRODS_LDFLAGS += -L$(IRODS_HOME)/lib
+endif
 endif
 
 ifdef IRODS_BUILD
