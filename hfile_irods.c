@@ -28,7 +28,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <errno.h>
 
 #include "hfile_internal.h"
-#include "htslib/hts.h"  // for hts_version() and hts_verbose
+#include "htslib/hts.h"  // for hts_verbose
 #include "htslib/kstring.h"
 
 #include <rodsClient.h>
@@ -95,14 +95,14 @@ static void irods_exit()
 
 static int irods_init()
 {
-    kstring_t useragent = { 0, 0, NULL };
     struct sigaction pipehandler;
     rErrMsg_t err;
     int ret, pipehandler_ret;
 
     if (hts_verbose >= 5) {
-        fprintf(stderr, "[M::hfile_irods.init] plugin built against %s(%s)\n",
-                RODS_REL_VERSION, RODS_API_VERSION);
+        fputs("[M::hfile_irods.init] version " PLUGINS_VERSION
+              " built against " RODS_REL_VERSION "(" RODS_API_VERSION ")\n",
+              stderr);
         rodsLogLevel(hts_verbose);
     }
 
@@ -110,10 +110,7 @@ static int irods_init()
     if (ret < 0) goto error;
 
     // Set iRODS User-Agent, if our caller hasn't already done so.
-    kputs("htslib/", &useragent);
-    kputs(hts_version(), &useragent);
-    (void) setenv(SP_OPTION, useragent.s, 0);
-    free(useragent.s);
+    (void) setenv(SP_OPTION, "htslib-irods/" PLUGINS_VERSION, 0);
 
     // Prior to iRODS 4.1, rcConnect() (even if it fails) installs its own
     // SIGPIPE handler, which just prints a message and otherwise ignores the

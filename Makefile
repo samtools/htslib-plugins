@@ -25,6 +25,8 @@
 # This Makefile uses GNU Make-specific constructs, including conditionals
 # and target-specific variables.  You will need to use GNU Make.
 
+srcdir ?= .
+
 CC       = gcc
 CPPFLAGS =
 CFLAGS   = -g -Wall -O2
@@ -39,6 +41,11 @@ all: plugins
 # $(HTSDIR) (or use 'make HTSDIR=...') to point to the top-level directory
 # of your HTSlib source tree.
 #HTSDIR = ../htslib
+
+# Version number for plugins is the Git description of the working tree,
+# or the date of compilation if built outwith a Git repository.
+VERSION := $(shell $(if $(wildcard $(srcdir)/.git),cd $(srcdir) && git describe --always --dirty,date +%Y-%m-%d))
+VERSION_CPPFLAGS = -DPLUGINS_VERSION=\"$(VERSION)\"
 
 ALL_CPPFLAGS = $(CPPFLAGS)
 ALL_CFLAGS   = $(CFLAGS)
@@ -162,7 +169,7 @@ IRODS_LIBS = -lirods_client_api_table -lirods_client_core -lirods_plugin_depende
 endif
 
 
-hfile_irods.o: ALL_CPPFLAGS += $(IRODS_CPPFLAGS)
+hfile_irods.o: ALL_CPPFLAGS += $(VERSION_CPPFLAGS) $(IRODS_CPPFLAGS)
 hfile_irods$(PLUGIN_EXT): ALL_LDFLAGS += $(IRODS_LDFLAGS)
 hfile_irods$(PLUGIN_EXT): ALL_LIBS += $(IRODS_LIBS)
 
