@@ -178,6 +178,12 @@ static ssize_t irods_read(hFILE *fpv, void *buffer, size_t nbytes)
     args.l1descInx = fp->descriptor;
     args.len = nbytes;
 
+#if IRODS_VERSION_INTEGER >= 4001000
+    // Work around iRODS bug: these versions write one extra byte regardless of
+    // the supplied buffer length (https://github.com/irods/irods/issues/3255).
+    args.len--;
+#endif
+
     buf.buf = buffer;
     buf.len = nbytes;
 
