@@ -132,7 +132,9 @@ endif
 ifneq "$(wildcard $(IRODS_HOME)/lib/irods/externals/lib*)" ""
 IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/irods/externals
 endif
-ifneq "$(wildcard $(IRODS_HOME)/lib/core/obj/lib*)" ""
+ifneq "$(wildcard $(IRODS_HOME)/lib/development_libraries/lib*)" ""
+IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/development_libraries
+else ifneq "$(wildcard $(IRODS_HOME)/lib/core/obj/lib*)" ""
 IRODS_LDFLAGS += -L$(IRODS_HOME)/lib/core/obj
 else ifneq "$(wildcard $(IRODS_HOME)/lib)" ""
 ifneq "$(IRODS_HOME)" "/usr"

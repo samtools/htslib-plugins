@@ -33,10 +33,26 @@ DEALINGS IN THE SOFTWARE.  */
 
 #include <rodsClient.h>
 
+#ifndef IRODS_VERSION_INTEGER
+// This version macro was introduced in iRODS 4.1.0.  Plugins were introduced
+// in 4.0.0, so we can distinguish the major version numbers of interest.
+#ifdef PLUGIN_ERROR
+#define IRODS_VERSION_INTEGER 4000000  // 4.0.x
+#else
+#define IRODS_VERSION_INTEGER 3000000  // 3.x
+#endif
+#endif
+
+#if IRODS_VERSION_INTEGER >= 4000000 && IRODS_VERSION_INTEGER < 4001000
+#error hfile_irods.c does not support this iRODS version
+// 4.0.x is unsupported as rcDataObjRead() mallocs its own buffer instead
+// of using the one supplied (https://github.com/irods/irods/issues/2503).
+#endif
+
 // PRIORITY ensures that if multiple hfile_irods plugins built against
 // different iRODS versions are installed, the plain "irods" scheme will
 // be claimed by the most modern one.
-#if defined IRODS_VERSION_INTEGER && IRODS_VERSION_INTEGER >= 4000000
+#if IRODS_VERSION_INTEGER >= 4000000
 #define PRIORITY (10 * IRODS_VERSION_MAJOR) + IRODS_VERSION_MINOR
 #else
 #define PRIORITY 30
