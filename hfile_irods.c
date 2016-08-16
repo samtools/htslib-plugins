@@ -158,6 +158,12 @@ static int irods_init()
         if (ret != 0) goto error;
     }
 
+    // Register irods_exit() here rather than via hFILE_plugin::destroy
+    // so that it is invoked while iRODS is still up, i.e., before any
+    // atexit()-functions or C++ static object destructors invoked due
+    // to iRODS initialisation during the iRODS calls above.
+    (void) atexit(irods_exit);
+
     return 0;
 
 error:
@@ -306,6 +312,5 @@ int hfile_plugin_init(struct hFILE_plugin *self)
     hfile_add_scheme_handler("irods", &handler);
     // At present RODS_REL_VERSION looks like "rodsX.Y[.Z]".
     hfile_add_scheme_handler("i"RODS_REL_VERSION, &handler);
-    self->destroy = irods_exit;
     return 0;
 }
