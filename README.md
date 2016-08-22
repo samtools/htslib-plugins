@@ -13,6 +13,10 @@ The _hfile_irods_wrapper_ plugin can be installed in the same directory
 as _hfile_irods_ to work around this problem and enable the iRODS plugin
 to be used with these earlier versions of HTSlib.
 
+### Memory-mapped local files
+
+The _hfile_mmap_ plugin provides access to local files via `mmap(2)`.
+
 
 [HTSlib]: https://github.com/samtools/htslib
 [iRODS]:  http://irods.org/

@@ -84,13 +84,19 @@ ifdef HTSDIR
 ALL_CPPFLAGS += -I$(HTSDIR)
 endif
 
-plugins: hfile_irods$(PLUGIN_EXT)
+plugins: hfile_irods$(PLUGIN_EXT) hfile_mmap$(PLUGIN_EXT)
 
 clean:
 	-rm -f *.o *$(PLUGIN_EXT)
 
 tags TAGS:
 	ctags -f TAGS *.[ch]
+
+
+#### Memory-mapped local files ####
+
+hfile_mmap$(PLUGIN_EXT): hfile_mmap.o
+hfile_mmap.o: hfile_mmap.c hfile_internal.h
 
 
 #### iRODS http://irods.org/ ####
