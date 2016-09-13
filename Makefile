@@ -179,7 +179,7 @@ hfile_irods$(PLUGIN_EXT): hfile_irods.o
 hfile_irods.o: hfile_irods.c hfile_internal.h
 
 
-#### iRODS 4.1.x wrapper (for HTSlib prior to 1.4) ####
+#### iRODS 4.1.x wrapper (for HTSlib prior to 1.3.2) ####
 
 hfile_irods_wrapper$(PLUGIN_EXT): ALL_LDFLAGS += -Wl,-rpath,'$$ORIGIN'
 hfile_irods_wrapper$(PLUGIN_EXT): ALL_LIBS += -ldl
