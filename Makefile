@@ -33,7 +33,16 @@ CFLAGS   = -g -Wall -O2
 LDFLAGS  =
 LIBS     =
 
-.PHONY: all clean plugins tags
+prefix      = /usr/local
+exec_prefix = $(prefix)
+libexecdir  = $(exec_prefix)/libexec
+plugindir   = $(libexecdir)/htslib
+
+INSTALL         = install -p
+INSTALL_DIR     = mkdir -p -m 755
+INSTALL_PROGRAM = $(INSTALL)
+
+.PHONY: all clean install plugins tags
 all: plugins
 
 # By default, plugins are compiled against an already-installed HTSlib.
@@ -84,7 +93,16 @@ ifdef HTSDIR
 ALL_CPPFLAGS += -I$(HTSDIR)
 endif
 
-plugins: hfile_irods$(PLUGIN_EXT) hfile_mmap$(PLUGIN_EXT)
+# Override $(PLUGINS) to build or install a different subset of the available
+# plugins.  In particular, hfile_irods_wrapper is not in the default list as
+# it is not needed with recent HTSlib (though it does no particular harm).
+PLUGINS = hfile_irods$(PLUGIN_EXT) hfile_mmap$(PLUGIN_EXT)
+
+plugins: $(PLUGINS)
+
+install: $(PLUGINS)
+	$(INSTALL_DIR) $(DESTDIR)$(plugindir)
+	$(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 
 clean:
 	-rm -f *.o *$(PLUGIN_EXT)
