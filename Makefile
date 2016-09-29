@@ -53,7 +53,7 @@ all: plugins
 
 # Version number for plugins is the Git description of the working tree,
 # or the date of compilation if built outwith a Git repository.
-VERSION := $(shell $(if $(wildcard $(srcdir)/.git),cd $(srcdir) && git describe --always --dirty,date +%Y-%m-%d))
+VERSION := $(shell $(if $(wildcard $(srcdir)/.git),cd $(srcdir) && git describe --always --dirty,date +%Y%m%d))
 VERSION_CPPFLAGS = -DPLUGINS_VERSION=\"$(VERSION)\"
 
 ALL_CPPFLAGS = $(CPPFLAGS)
