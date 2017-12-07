@@ -146,7 +146,7 @@ static int irods_init()
         fprintf(stderr, "[M::hfile_irods.init] connected to %s(%s)",
                 irods.conn->svrVersion->relVersion,
                 irods.conn->svrVersion->apiVersion);
-        if (irods.env.rodsHost && irods.env.rodsPort)
+        if (strncmp(irods.env.rodsHost, "", 1) != 0 && irods.env.rodsPort)
             fprintf(stderr, " at %s:%d\n",
                     irods.env.rodsHost, irods.env.rodsPort);
         else
