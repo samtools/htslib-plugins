@@ -1,6 +1,6 @@
 # Makefile for HTSlib plugins.
 #
-#    Copyright (C) 2016 Genome Research Ltd.
+#    Copyright (C) 2016, 2017 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
@@ -188,9 +188,20 @@ IRODS_CPPFLAGS += -Dhfile_plugin_init=hfile_plugin_init_hfile_irods
 IRODS_LIBS = -lirods_client -lirods_client_api_table -lirods_client_plugins -lirods_client_api -lirods_client_core \
 	-ljansson -lboost_program_options -lboost_filesystem -lboost_chrono -lboost_regex -lboost_thread -lboost_system -lssl -lcrypto -lrt -lstdc++
 
+else ifneq "$(findstring rods4.2.,$(IRODS_VERSION))" ""
+
+# iRODS 4.2.x has its own plugins (eg libtcp_client.so) and a complete set 
+# of shared libraries. However, iRODS uses dynamic_cast to cast some 
+# classes defined in plugins and this does not work with some c++ ABIs
+# Therefore we use RTLD_GLOBAL for hfile_irods until iRODS fixes the 
+# underlying issue (https://github.com/irods/irods/issues/3752)
+IRODS_CPPFLAGS += -Dhfile_plugin_init=hfile_plugin_init_hfile_irods
+
+IRODS_LIBS = -lirods_client -lirods_plugin_dependencies -lirods_common
+
 else
 
-IRODS_LIBS = -lirods_client_api_table -lirods_client_core -lirods_plugin_dependencies -lirods_common
+IRODS_LIBS = -lirods_client -lirods_plugin_dependencies -lirods_common
 
 endif
 
