@@ -1,5 +1,12 @@
 Plugins for use with [HTSlib].
 
+### EGA-style encrypted (.cip) files
+
+The _hfile_cip_ plugin provides access to files encrypted with the
+[European Genome-Phenome Archive][EGA]'s AES-CTR scheme, which usually
+have the extension _.cip_.
+The en-/decryption key is taken from the `$HTS_CIP_KEY` environment variable.
+
 ### iRODS
 
 The _hfile_irods_ plugin provides access to remote data stored in [iRODS].
@@ -18,5 +25,6 @@ to be used with these earlier versions of HTSlib.
 The _hfile_mmap_ plugin provides access to local files via `mmap(2)`.
 
 
+[EGA]:    https://ega-archive.org/
 [HTSlib]: https://github.com/samtools/htslib
 [iRODS]:  http://irods.org/

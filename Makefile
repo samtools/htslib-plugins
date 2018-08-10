@@ -1,6 +1,6 @@
 # Makefile for HTSlib plugins.
 #
-#    Copyright (C) 2016, 2017 Genome Research Ltd.
+#    Copyright (C) 2016-2018 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
@@ -83,6 +83,8 @@ endif
 
 else
 PLUGIN_EXT = .so
+CRYPTO_CFLAGS = -DHAVE_OPENSSL
+CRYPTO_LIBS = -lcrypto
 ALL_CFLAGS += -fpic
 
 %.so: %.o
@@ -96,7 +98,7 @@ endif
 # Override $(PLUGINS) to build or install a different subset of the available
 # plugins.  In particular, hfile_irods_wrapper is not in the default list as
 # it is not needed with recent HTSlib (though it does no particular harm).
-PLUGINS = hfile_irods$(PLUGIN_EXT) hfile_mmap$(PLUGIN_EXT)
+PLUGINS = hfile_cip$(PLUGIN_EXT) hfile_irods$(PLUGIN_EXT) hfile_mmap$(PLUGIN_EXT)
 
 plugins: $(PLUGINS)
 
@@ -109,6 +111,15 @@ clean:
 
 tags TAGS:
 	ctags -f TAGS *.[ch]
+
+
+#### EGA-style encrypted (.cip) files ####
+
+hfile_cip.o: ALL_CFLAGS += $(CRYPTO_CFLAGS)
+hfile_cip$(PLUGIN_EXT): ALL_LIBS += $(CRYPTO_LIBS)
+
+hfile_cip$(PLUGIN_EXT): hfile_cip.o
+hfile_cip.o: hfile_cip.c hfile_internal.h
 
 
 #### Memory-mapped local files ####
