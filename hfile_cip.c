@@ -53,7 +53,6 @@ DEALINGS IN THE SOFTWARE.  */
 
 typedef struct {
     hFILE base;
-    unsigned is_write : 1;
     unsigned char *buffer;
     size_t bufsize;
     hFILE *rawfp;
@@ -99,14 +98,6 @@ cipher_update(hFILE_cip *fp, const void *in, void *out, size_t length)
     return n;
 }
 
-static inline ssize_t cipher_final(hFILE_cip *fp, void *out, size_t length)
-{
-    int n = length;
-    if (! EVP_CipherFinal(&fp->ctx, out, &n))
-        { errno = ssl_errno("EVP_CipherFinal"); return -1; }
-    return n;
-}
-
 #elif defined HAVE_COMMONCRYPTO
 
 static int cc_errno(CCStatus status, const char *function)
@@ -147,15 +138,6 @@ cipher_update(hFILE_cip *fp, const void *in, void *out, size_t length)
     CCStatus ret = CCCryptorUpdate(fp->cryptor, in, length, out, length, &n);
     if (ret != kCCSuccess)
         { errno = cc_errno(ret, "CCCryptorUpdate"); return -1; }
-    return n;
-}
-
-static inline ssize_t cipher_final(hFILE_cip *fp, void *out, size_t length)
-{
-    size_t n;
-    CCStatus ret = CCCryptorFinal(fp->cryptor, out, length, &n);
-    if (ret != kCCSuccess)
-        { errno = cc_errno(ret, "CCCryptorFinal"); return -1; }
     return n;
 }
 
@@ -216,14 +198,6 @@ static int cip_close(hFILE *fpv)
     hFILE_cip *fp = (hFILE_cip *) fpv;
     int err = 0;
 
-    if (fp->is_write) {
-        ssize_t nout = cipher_final(fp, fp->buffer, fp->bufsize);
-        if (nout > 0) {
-            if (hwrite(fp->rawfp, fp->buffer, nout) != nout) err = errno;
-        }
-        else if (nout < 0) err = errno;
-    }
-
 #if defined HAVE_OPENSSL
     if (! EVP_CIPHER_CTX_cleanup(&fp->ctx))
         err = ssl_errno("EVP_CIPHER_CTX_cleanup");
@@ -278,12 +252,10 @@ static hFILE *hopen_cip(const char *filename, const char *mode)
         ssize_t n = hread(fp->rawfp, iv, sizeof iv);
         if (n < 0) goto error;
         if (n < sizeof iv) { errno = EDOM; goto error; }
-        fp->is_write = 0;
     }
     else if (accmode == O_WRONLY) {
         if (gen_random(iv, sizeof iv) < 0) goto error;
         if (hwrite(fp->rawfp, iv, sizeof iv) != sizeof iv) goto error;
-        fp->is_write = 1;
     }
     else { errno = EINVAL; goto error; }
 
