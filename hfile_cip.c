@@ -243,14 +243,18 @@ static const struct hFILE_backend cip_backend =
     cip_read, cip_write, cip_seek, NULL, cip_close
 };
 
+static const char *strip_cip_scheme(const char *filename)
+{
+    if (strncmp(filename, "cip://localhost/", 16) == 0) filename += 15;
+    else if (strncmp(filename, "cip:///", 7) == 0) filename += 6;
+    else if (strncmp(filename, "cip:", 4) == 0) filename += 4;
+    return filename;
+}
+
 static hFILE *hopen_cip(const char *filename, const char *mode)
 {
     hFILE_cip *fp = NULL;
     int save;
-
-    if (strncmp(filename, "cip://localhost/", 16) == 0) filename += 15;
-    else if (strncmp(filename, "cip:///", 7) == 0) filename += 6;
-    else if (strncmp(filename, "cip:", 4) == 0) filename += 4;
 
     const char *key = getenv("HTS_CIP_KEY");
     if (key == NULL) { errno = EPERM; goto error; }
@@ -261,7 +265,7 @@ static hFILE *hopen_cip(const char *filename, const char *mode)
     fp->rawfp = NULL;
     fp->buffer = NULL;
 
-    fp->rawfp = hopen(filename, mode);
+    fp->rawfp = hopen(strip_cip_scheme(filename), mode);
     if (fp->rawfp == NULL) goto error;
 
     fp->bufsize = 8192 * BLOCKSIZE;
@@ -327,10 +331,15 @@ error:
     return NULL;
 }
 
+static int cip_isremote(const char *filename)
+{
+    return hisremote(strip_cip_scheme(filename));
+}
+
 int hfile_plugin_init(struct hFILE_plugin *self)
 {
     static const struct hFILE_scheme_handler handler =
-        { hopen_cip, hfile_always_local, "cip", 50 };
+        { hopen_cip, cip_isremote, "cip", 50 };
 
     self->name = "cip";
     hfile_add_scheme_handler("cip", &handler);
