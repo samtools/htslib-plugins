@@ -67,6 +67,8 @@ ALL_LIBS     = $(LIBS)
 PLATFORM := $(shell uname -s)
 ifeq "$(PLATFORM)" "Darwin"
 PLUGIN_EXT = .bundle
+CRYPTO_CFLAGS = -DHAVE_COMMONCRYPTO
+CRYPTO_LIBS =
 
 %.bundle: %.o
 	$(CC) -bundle -Wl,-undefined,dynamic_lookup $(ALL_LDFLAGS) -o $@ $^ $(ALL_LIBS)

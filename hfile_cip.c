@@ -37,6 +37,13 @@ DEALINGS IN THE SOFTWARE.  */
 
 #define BLOCKSIZE AES_BLOCK_SIZE
 
+#elif defined HAVE_COMMONCRYPTO
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonKeyDerivation.h>
+#include <CommonCrypto/CommonRandom.h>
+
+#define BLOCKSIZE kCCBlockSizeAES128
+
 #else
 #error No cryptography library specified
 #endif
@@ -52,6 +59,8 @@ typedef struct {
     hFILE *rawfp;
 #if defined HAVE_OPENSSL
     EVP_CIPHER_CTX ctx;
+#elif defined HAVE_COMMONCRYPTO
+    CCCryptorRef cryptor;
 #endif
 } hFILE_cip;
 
@@ -95,6 +104,58 @@ static inline ssize_t cipher_final(hFILE_cip *fp, void *out, size_t length)
     int n = length;
     if (! EVP_CipherFinal(&fp->ctx, out, &n))
         { errno = ssl_errno("EVP_CipherFinal"); return -1; }
+    return n;
+}
+
+#elif defined HAVE_COMMONCRYPTO
+
+static int cc_errno(CCStatus status, const char *function)
+{
+    if (hts_verbose >= 4)
+        fprintf(stderr, "[E::hfile_cip] %s() failed: code %d\n",
+                function, status);
+
+    switch (status) {
+    case kCCSuccess:            return 0;
+    case kCCParamError:         return EINVAL;
+    case kCCBufferTooSmall:     return ENOSPC;
+    case kCCMemoryFailure:      return ENOMEM;
+    case kCCAlignmentError:     return ERANGE;
+    case kCCDecodeError:        return ERANGE;
+    case kCCUnimplemented:      return ENOSYS;
+    case kCCOverflow:           return EOVERFLOW;
+    case kCCRNGFailure:         return ERANGE;
+    case kCCUnspecifiedError:   return ERANGE;
+    case kCCCallSequenceError:  return EBADF;
+    }
+
+    return EINVAL;
+}
+
+static inline int gen_random(uint8_t *buffer, size_t length)
+{
+    CCStatus ret = CCRandomGenerateBytes(buffer, length);
+    if (ret != kCCSuccess)
+        { errno = cc_errno(ret, "CCRandomGenerateBytes"); return -1; }
+    return 0;
+}
+
+static inline ssize_t
+cipher_update(hFILE_cip *fp, const void *in, void *out, size_t length)
+{
+    size_t n;
+    CCStatus ret = CCCryptorUpdate(fp->cryptor, in, length, out, length, &n);
+    if (ret != kCCSuccess)
+        { errno = cc_errno(ret, "CCCryptorUpdate"); return -1; }
+    return n;
+}
+
+static inline ssize_t cipher_final(hFILE_cip *fp, void *out, size_t length)
+{
+    size_t n;
+    CCStatus ret = CCCryptorFinal(fp->cryptor, out, length, &n);
+    if (ret != kCCSuccess)
+        { errno = cc_errno(ret, "CCCryptorFinal"); return -1; }
     return n;
 }
 
@@ -166,6 +227,9 @@ static int cip_close(hFILE *fpv)
 #if defined HAVE_OPENSSL
     if (! EVP_CIPHER_CTX_cleanup(&fp->ctx))
         err = ssl_errno("EVP_CIPHER_CTX_cleanup");
+#elif defined HAVE_COMMONCRYPTO
+    CCStatus ret = CCCryptorRelease(fp->cryptor);
+    if (ret != kCCSuccess) err = cc_errno(ret, "CCCryptorRelease");
 #endif
 
     if (hclose(fp->rawfp) < 0) err = errno;
@@ -231,6 +295,22 @@ static hFILE *hopen_cip(const char *filename, const char *mode)
     if (! EVP_CipherInit_ex(&fp->ctx, EVP_aes_128_ctr(), NULL, secret, iv,
             (accmode == O_WRONLY)))
         { errno = ssl_errno("EVP_CipherInit_ex"); goto error; }
+
+#elif defined HAVE_COMMONCRYPTO
+    CCStatus ret;
+    ret = CCKeyDerivationPBKDF(kCCPBKDF2, key, strlen(key), salt, sizeof salt,
+            kCCPRFHmacAlgSHA1, 1024, secret, sizeof secret);
+    if (ret != kCCSuccess)
+        { errno = cc_errno(ret, "CCKeyDerivationPBKDF"); goto error; }
+
+    // Even though kCCModeOptionCTR_BE is deprecated, CCCryptorCreateWithMode()
+    // fails (returning kCCUnimplemented) if it is not specified.
+    CCOperation operation = (accmode == O_RDONLY)? kCCDecrypt : kCCEncrypt;
+    ret = CCCryptorCreateWithMode(operation, kCCModeCTR, kCCAlgorithmAES, 0,
+            iv, secret, sizeof secret, NULL, 0, 0, kCCModeOptionCTR_BE,
+            &fp->cryptor);
+    if (ret != kCCSuccess)
+        { errno = cc_errno(ret, "CCCryptorCreateWithMode"); goto error; }
 #endif
 
     fp->base.backend = &cip_backend;
