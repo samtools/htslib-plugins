@@ -57,7 +57,7 @@ typedef struct {
     size_t bufsize;
     hFILE *rawfp;
 #if defined HAVE_OPENSSL
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
 #elif defined HAVE_COMMONCRYPTO
     CCCryptorRef cryptor;
 #endif
@@ -93,7 +93,7 @@ static inline ssize_t
 cipher_update(hFILE_cip *fp, const void *in, void *out, size_t length)
 {
     int n = length;
-    if (! EVP_CipherUpdate(&fp->ctx, out, &n, in, length))
+    if (! EVP_CipherUpdate(fp->ctx, out, &n, in, length))
         { errno = ssl_errno("EVP_CipherUpdate"); return -1; }
     return n;
 }
@@ -199,8 +199,7 @@ static int cip_close(hFILE *fpv)
     int err = 0;
 
 #if defined HAVE_OPENSSL
-    if (! EVP_CIPHER_CTX_cleanup(&fp->ctx))
-        err = ssl_errno("EVP_CIPHER_CTX_cleanup");
+    EVP_CIPHER_CTX_free(fp->ctx);
 #elif defined HAVE_COMMONCRYPTO
     CCStatus ret = CCCryptorRelease(fp->cryptor);
     if (ret != kCCSuccess) err = cc_errno(ret, "CCCryptorRelease");
@@ -267,8 +266,10 @@ static hFILE *hopen_cip(const char *filename, const char *mode)
             sizeof secret, secret))
         { errno = ssl_errno("PKCS5_PBKDF2_HMAC"); goto error; }
 
-    EVP_CIPHER_CTX_init(&fp->ctx);
-    if (! EVP_CipherInit_ex(&fp->ctx, EVP_aes_128_ctr(), NULL, secret, iv,
+    fp->ctx = EVP_CIPHER_CTX_new();
+    if (fp->ctx == NULL)
+        { errno = ssl_errno("EVP_CIPHER_CTX_new"); goto error; }
+    if (! EVP_CipherInit_ex(fp->ctx, EVP_aes_128_ctr(), NULL, secret, iv,
             (accmode == O_WRONLY)))
         { errno = ssl_errno("EVP_CipherInit_ex"); goto error; }
 
