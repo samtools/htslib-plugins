@@ -1,4 +1,4 @@
-Plugins for use with [HTSlib].
+Plugins for use with [HTSlib]. Note the `HTS_PATH` environment variable must be set to the plugin directory in order for programs compiled with htslib to find the plugins. See the samtools.1 man page for details.
 
 ### EGA-style encrypted (.cip) files
 
