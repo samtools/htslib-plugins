@@ -1,4 +1,16 @@
-Plugins for use with [HTSlib]. Note the `HTS_PATH` environment variable must be set to the plugin directory in order for programs compiled with htslib to find the plugins. See the samtools.1 man page for details.
+Plugins for use with [HTSlib].
+
+Built plugins need to be on HTSlib's plugin search path so that HTSlib
+and programs using it can find them.
+This can be arranged in either of the following ways:
+
+* Copy them to HTSlib's built-in search path, which typically includes
+_/usr/local/libexec/htslib_ and similar directories.
+(If building HTSlib yourself, use `./configure --with-plugin-path=…:DIR:…`
+to include directories of your choice in the path.)
+
+* Alternatively, set the [`HTS_PATH` environment variable][envvar] to include
+the directory containing the built plugins.
 
 ### EGA-style encrypted (.cip) files
 
@@ -26,5 +38,6 @@ The _hfile_mmap_ plugin provides access to local files via `mmap(2)`.
 
 
 [EGA]:    https://ega-archive.org/
+[envvar]: https://www.htslib.org/doc/samtools.html#ENVIRONMENT_VARIABLES
 [HTSlib]: https://github.com/samtools/htslib
 [iRODS]:  http://irods.org/
